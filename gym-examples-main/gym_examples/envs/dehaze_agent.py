@@ -9,7 +9,7 @@ def cvimage_to_pygame(image):
     """Convert cvimage into a pygame image"""
     return pygame.image.frombuffer(image.tostring(), image.shape[1::-1], "BGR")
 
-class GridWorldEnv(gym.Env):
+class DehazeAgent(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
     def __init__(self, render_mode=None,size=(512,512,3)):

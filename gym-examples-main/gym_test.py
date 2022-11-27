@@ -1,7 +1,7 @@
 import gymnasium
 import gym_examples
 
-env = gymnasium.make('gym_examples/GridWorld-v0',render_mode='human')
+env = gymnasium.make('gym_examples/DehazeAgent-v0',render_mode='human')
 observation, info = env.reset()
 
 for _ in range(1000):
