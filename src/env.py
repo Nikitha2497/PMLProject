@@ -4,6 +4,7 @@ import numpy as np
 import pygame
 import cv2
 from RL_Actions import *
+import math
 
 def cvimage_to_pygame(image):
     """Convert cvimage into a pygame image"""
@@ -44,14 +45,18 @@ class DehazeAgent(gym.Env):
         """
         self.window = None
         self.clock = None
+    
 
     def _get_obs(self):
-        return {"image": self._image}
+        return {"image": self._image , "path": self._original_path}
 
     def _get_info(self):
         return {
             "last action": self._last_action
         }
+    
+    def _l2_norm(self):
+        return math.sqrt(np.sum((self._image - self._original_clear_img)**2))
 
     def reset(self, seed=None, options=None):
         # We need the following line to seed self.np_random
@@ -59,9 +64,15 @@ class DehazeAgent(gym.Env):
 
         # Choose the agent's location uniformly at random
         # here we should read a new image from the dataset
+        # TODO(nikitha) This is the path of the original clear picture (Change this)
+        self._original_path = "/Users/iamariyap/Desktop/sem3/PredictiveML/Project/code/PMLProject/src/city2_hazy.png"
         img = cv2.imread("/Users/iamariyap/Desktop/sem3/PredictiveML/Project/code/PMLProject/src/city2_hazy.png")
+        self._original_clear_img = cv2.imread(self._original_path)
+
         # img=cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
         self._image=cv2.resize(img,(512,512))
+        self._original_clear_img = cv2.resize(self._original_clear_img, (512, 512))
+        print("L2 norm should be zero here - ", self._l2_norm())
         self._last_action=-1
 
         # # We will sample the target's location randomly until it does not coincide with the agent's location
@@ -74,8 +85,8 @@ class DehazeAgent(gym.Env):
         observation = self._get_obs()
         info = self._get_info()
 
-        if self.render_mode == "human":
-            self._render_frame()
+        # if self.render_mode == "human":
+        #     self._render_frame()
 
         return observation, info
 
@@ -114,11 +125,12 @@ class DehazeAgent(gym.Env):
         # terminated = np.array_equal(self._agent_location, self._target_location)
         terminated=np.random.uniform()
         reward = 1 if terminated<0.25 else 0  # Random Reward
+        print("L2 Norm - ", self._l2_norm())
         observation = self._get_obs()
         info = self._get_info()
 
-        if self.render_mode == "human":
-            self._render_frame()
+        # if self.render_mode == "human":
+        #     self._render_frame()
 
         return observation, reward, terminated<0.25, False, info
 
@@ -157,4 +169,6 @@ class DehazeAgent(gym.Env):
     def close(self):
         if self.window is not None:
             pygame.display.quit()
-            pygame.quit()
+            pygame.quit()  
+
+    

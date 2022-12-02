@@ -18,6 +18,7 @@ import random
 import numpy as np
 
 from vgg_pytorch import VGG
+from torchvision import models
 
 register(
      id="env/DehazeAgent-v0",
@@ -41,13 +42,14 @@ Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward'))
 
 
-pretrained_vgg_model = VGG.from_pretrained("vgg16")
+pretrained_vgg_model = models.vgg16(pretrained=True)
+# Extract the features with 1x4096 size (remove the last layers in classifier)
+pretrained_vgg_model.classifier = nn.Sequential(*list(pretrained_vgg_model.classifier.children())[:-3])
 
-# TODO(nikitha) - Should I change this?
-resize = T.Compose([T.ToTensor()])
+
 def extract_vgg_features(img):
-    input_tensor = resize(img)
-    return pretrained_vgg_model.extract_features(input_tensor.unsqueeze(0))
+    input_tensor = T.ToTensor()(T.Resize((512, 512))(Image.fromarray(img))).unsqueeze(dim=0)
+    return pretrained_vgg_model(input_tensor)
 
 # Example for extracting vgg features 
 # img = Image.open('/Users/iamariyap/Desktop/sem3/PredictiveML/Project/code/PMLProject/src/city2_hazy.png')
@@ -74,29 +76,29 @@ class ReplayMemory(object):
 class DQN(nn.Module):
     def __init__(self, outputs):
         super(DQN, self).__init__()
-        self.fc1 = nn.Linear(3, 16)
-        self.bn1 = nn.BatchNorm2d(16)
-        self.fc2 = nn.Linear(16, 32)
+        self.fc1 = nn.Linear(4096, 4096)
+        self.bn1 = nn.BatchNorm2d(32)
+        self.fc2 = nn.Linear(4096, 512)
         self.bn2 = nn.BatchNorm2d(32)
-        self.fc3 = nn.Linear(32, 32)
+        self.fc3 = nn.Linear(512, 11)
         self.bn3 = nn.BatchNorm2d(32)
 
         # Number of Linear input connections depends on output of conv2d layers
         # and therefore the input image size, so compute it.
-        def conv2d_size_out(size, kernel_size = 5, stride = 2):
-            return (size - (kernel_size - 1) - 1) // stride  + 1
+        # def conv2d_size_out(size, kernel_size = 5, stride = 2):
+        #     return (size - (kernel_size - 1) - 1) // stride  + 1
         # convw = conv2d_size_out(conv2d_size_out(conv2d_size_out(w)))
         # convh = conv2d_size_out(conv2d_size_out(conv2d_size_out(h)))
         # TODO(nikitha) How to set linear input size??
-        linear_input_size = 16 * 32 * 32
-        self.head = nn.Linear(linear_input_size, outputs)
+        # linear_input_size = 16 * 32 * 32
+        # self.head = nn.Linear(linear_input_size, outputs)
 
     def forward(self, x):
-        x = x.to(device)
-        x = F.relu(self.bn1(self.conv1(x)))
-        x = F.relu(self.bn2(self.conv2(x)))
-        x = F.relu(self.bn3(self.conv3(x)))
-        return self.head(x.view(x.size(0), -1))
+        # x = x.to(device)
+        x = F.relu(self.bn1(self.fc1(x)))
+        x = F.relu(self.bn2(self.fc2(x)))
+        x = F.relu(self.bn3(self.fc3(x)))
+        return x
     
 
 env.reset()
@@ -198,6 +200,8 @@ for i_episode in range(num_episodes):
     state = observation["image"]
     for t in count():
         # Select and perform an action
+        features = extract_vgg_features(state)
+        print("Size of the features " ,  features.shape)
         action = select_action(extract_vgg_features(state))
         observation, reward, done, _, _ = env.step(action.item())
         reward = torch.tensor([reward], device=device)
@@ -218,7 +222,7 @@ for i_episode in range(num_episodes):
         optimize_model()
         if done:
             episode_durations.append(t + 1)
-            plot_durations()
+            # plot_durations()
             break
 
         # Update the target network, copying all weights and biases in DQN
