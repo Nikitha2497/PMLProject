@@ -4,6 +4,8 @@ import numpy as np
 import pygame
 import cv2
 from RL_Actions import *
+import pandas as pd
+import torch
 
 def cvimage_to_pygame(image):
     """Convert cvimage into a pygame image"""
@@ -15,7 +17,11 @@ class DehazeAgent(gym.Env):
     def __init__(self, render_mode=None,size=(512,512,3)):
         self.size = size  # The size of the square grid
         self.window_size = 512  # The size of the PyGame window
-
+        self.dataset_file="Cityscaples2Foggy/Cityscapes2Foggy.csv"
+        self.source_folder="Cityscaples2Foggy/source/"
+        self.target_folder="Cityscaples2Foggy/target/"
+        self.df=pd.read_csv(self.dataset_file,index_col='Unnamed: 0')
+        self.model=torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True)
         # Observations are dictionaries with the agent's and the target's location.
         # Each location is encoded as an element of {0, ..., `size`}^2, i.e. MultiDiscrete([size, size]).
         self.observation_space = spaces.Dict(
@@ -51,7 +57,8 @@ class DehazeAgent(gym.Env):
 
     def _get_info(self):
         return {
-            "last action": self._last_action
+            "last action": self._last_action,
+            " image info":self._datapoint
         }
 
     def reset(self, seed=None, options=None):
@@ -60,9 +67,12 @@ class DehazeAgent(gym.Env):
 
         # Choose the agent's location uniformly at random
         # here we should read a new image from the dataset
-        img = cv2.imread("city2_hazy.png")
+        self._datapoint=self.df.sample()
+        img = cv2.imread(self.target_folder+self._datapoint['foggy_image'].item())
         # img=cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
+        self._original_size=img.shape
         self._image=cv2.resize(img,(512,512))
+        # self._image=img
         self._last_action=-1
 
         # # We will sample the target's location randomly until it does not coincide with the agent's location
@@ -111,10 +121,19 @@ class DehazeAgent(gym.Env):
             self._image=cv2.cvtColor(CE(self._image),cv2.COLOR_RGB2BGR)
         
         self._last_action=action
+        
+        # here we have to run the object detector to generate a reward
+
+        # Model
+        result=self.model(cv2.resize(self._image,(1024,2048)))
+        # print(self._original_size)
+        result.print()
+        compute_loss(result.pandas,self.target_folder+self.df['annotation'])
         # An episode is done iff the agent has reached the target
         # terminated = np.array_equal(self._agent_location, self._target_location)
         terminated=np.random.uniform()
         reward = 1 if terminated<0.25 else 0  # Random Reward
+
         observation = self._get_obs()
         info = self._get_info()
 
