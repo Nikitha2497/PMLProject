@@ -6,6 +6,18 @@ import cv2
 from RL_Actions import *
 import math
 
+import skimage
+
+# Hyper Parameters for tuning reward function.
+# L2 norm loss
+lamba1 = 1
+# PSNR metric measure
+lambda2 = 1
+# SSIM metric measure
+lambda3 = 1
+# Bounding box loss
+lambda4 = 1
+
 def cvimage_to_pygame(image):
     """Convert cvimage into a pygame image"""
     return pygame.image.frombuffer(image.tostring(), image.shape[1::-1], "BGR")
@@ -58,6 +70,12 @@ class DehazeAgent(gym.Env):
     def _l2_norm(self):
         return math.sqrt(np.sum((self._image - self._original_clear_img)**2))
 
+    def pnsr_measure(self):
+        return skimage.metrics.peak_signal_noise_ratio(self._original_clear_img, self._image)
+    
+    def ssim_measure(self):
+        return skimage.metrics.structural_similarity(self._original_clear_img, self._image, multichannel = True)
+
     def reset(self, seed=None, options=None):
         # We need the following line to seed self.np_random
         super().reset(seed=seed)
@@ -65,14 +83,16 @@ class DehazeAgent(gym.Env):
         # Choose the agent's location uniformly at random
         # here we should read a new image from the dataset
         # TODO(nikitha) This is the path of the original clear picture (Change this)
-        self._original_path = "/Users/iamariyap/Desktop/sem3/PredictiveML/Project/code/PMLProject/src/city2_hazy.png"
-        img = cv2.imread("/Users/iamariyap/Desktop/sem3/PredictiveML/Project/code/PMLProject/src/city2_hazy.png")
+        self._original_path = "/Users/iamariyap/Desktop/sem3/PredictiveML/RL_Project/code/PMLProject/src/city2_hazy.png"
+        img = cv2.imread("/Users/iamariyap/Desktop/sem3/PredictiveML/RL_Project/code/PMLProject/src/city2_hazy.png")
         self._original_clear_img = cv2.imread(self._original_path)
 
         # img=cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
         self._image=cv2.resize(img,(512,512))
         self._original_clear_img = cv2.resize(self._original_clear_img, (512, 512))
+        
         print("L2 norm should be zero here - ", self._l2_norm())
+        print(" SSIM measure for same images - ", self.ssim_measure())
         self._last_action=-1
 
         # # We will sample the target's location randomly until it does not coincide with the agent's location
@@ -126,6 +146,8 @@ class DehazeAgent(gym.Env):
         terminated=np.random.uniform()
         reward = 1 if terminated<0.25 else 0  # Random Reward
         print("L2 Norm - ", self._l2_norm())
+        print("psnr measure - ", self.pnsr_measure())
+        print(" ssim measure - ", self.ssim_measure())
         observation = self._get_obs()
         info = self._get_info()
 
