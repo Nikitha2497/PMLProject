@@ -23,7 +23,8 @@ class DehazeAgent2(gym.Env):
         self.source_folder="../data/Cityscaples2Foggy/source/"
         self.target_folder="../data/Cityscaples2Foggy/target/"
         self.df=pd.read_csv(self.dataset_file,index_col='Unnamed: 0')
-        self.model=torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True,autoshape=False)
+        self.model=torch.hub.load('yolov5', 'custom', path='yolov5/runs/train/exp/weights/best.pt', source='local',autoshape=False)
+        # self.model=torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True,autoshape=False)
         self.model.warmup(imgsz=(1 , 3, 640, 640))
         self.loss_function=ComputeLoss(self.model.model)
         # Observations are dictionaries with the agent's and the target's location.
