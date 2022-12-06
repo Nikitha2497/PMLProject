@@ -193,7 +193,7 @@ class DehazeAgent2(gym.Env):
         img = torch.from_numpy(img).to(self.model.device)
         img =  img.float()
         img=img[None]
-        print(img.shape)
+        # print(img.shape)
         pred = self.model(img,augment=False,visualize=False)
 
         # obtain the annotations
