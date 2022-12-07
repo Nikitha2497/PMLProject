@@ -128,16 +128,8 @@ def optimize_model():
 
     non_final_mask = torch.tensor(tuple(map(lambda s: s is not None,
                                           batch.next_state)), device=device, dtype=torch.bool)
-    # temp = []
-    # for s in batch.next_state:
-    #     if s is None:
-    #         continue
-    #     if type(s) is np.ndarray:
-    #         print("It is an ndarray")
-    #     temps = torch.tensor(s).float()
-    #     temps = temps[None]
-    #     temp.append(temps)
     non_final_next_states = torch.cat([s for s in batch.next_state if s is not None])
+
     state_batch = torch.cat(batch.state)
     action_batch = torch.cat(batch.action)
     reward_batch = torch.cat(batch.reward)
@@ -168,10 +160,10 @@ for i_episode in range(num_episodes):
     print("Episode : ",i_episode)
     for t in count():
         # Select and perform an action
-        # features = extract_vgg_features(state)
+
+        
         print("Size of the features " ,  features.shape)
         action = select_action(features)
-        
         observation, reward, done, _, _ = env.step(action.item())
         reward = torch.tensor([reward], device=device)
 
@@ -191,7 +183,6 @@ for i_episode in range(num_episodes):
         # Move to the next state
         state = next_state
         next_features = features
-
         # Perform one step of the optimization (on the policy network)
         optimize_model()
         if done:
