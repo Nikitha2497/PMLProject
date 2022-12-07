@@ -33,10 +33,10 @@ class DehazeAgent(gym.Env):
     def __init__(self, render_mode=None,size=(512,512,3)):
         self.size = size  # The size of the square grid
         self.window_size = 640  # The size of the PyGame window
-        self.dataset_file="../data/Cityscaples2Foggy/Cityscapes2Foggy.csv"
-        self.source_folder="../data/Cityscaples2Foggy/source/"
-        self.target_folder="../data/Cityscaples2Foggy/target/"
-        self.df=pd.read_csv(self.dataset_file,index_col='Unnamed: 0')
+        self.dataset_file="yolov5/datasets/cityscapes/train_data.csv"
+        self.source_folder="yolov5/datasets/cityscapes/images/train/" # clear images
+        self.target_folder="yolov5/datasets/cityscapes/images/train_foggy/" # foggy images
+        self.df=pd.read_csv(self.dataset_file,index_col='Unnamed: 0.1')
         self.model=torch.hub.load('yolov5', 'custom', path='yolov5/runs/train/exp/weights/best.pt', source='local',autoshape=False)
 
         self.model.warmup(imgsz=(1 , 3, 640, 640))
@@ -104,7 +104,7 @@ class DehazeAgent(gym.Env):
         lines=[]
         annotation=self._datapoint['annotation'].item()
         annotation_file_name=annotation.split('_foggy')[0].split('target/')[-1]+'.txt'
-        annotation_file_name='../data/Cityscaples2Foggy/source/'+annotation_file_name
+        annotation_file_name='yolov5/datasets/cityscapes/labels/train/'+annotation_file_name
         print(annotation_file_name)
         with open(annotation_file_name) as f:
             lines=[line.split(' ') for line in f.readlines()]
@@ -134,11 +134,13 @@ class DehazeAgent(gym.Env):
         # here we should read a new image from the dataset
         self._datapoint=self.df.sample()
         img = cv2.imread(self.target_folder+self._datapoint['foggy_image'].item())
+        print(self.target_folder+self._datapoint['foggy_image'].item())
         img=cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
         self._original_size=img.shape
         self._image=cv2.resize(img,(640,640))
 
         self._original_path = self.source_folder+self._datapoint['src_image'].item()
+        print(self._original_path)
         self._original_clear_img = cv2.imread(self._original_path)
         self._original_clear_img = cv2.resize(self._original_clear_img, (640, 640))
 
