@@ -1,5 +1,4 @@
 import gymnasium
-from gymnasium.envs.registration import register
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -7,24 +6,22 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torch.nn.functional as F
-import torchvision.transforms as T
+
+
+from dqn import DQN
 
 from collections import namedtuple, deque
 from itertools import count
-from PIL import Image
+
 import math
 import random
 import numpy as np
 
-from vgg_pytorch import VGG
-from torchvision import models
+from vgg_features import extract_vgg_features
 
-register(
-     id="env/DehazeAgent-v0",
-     entry_point="env:DehazeAgent",
-     max_episode_steps=300,
-)
+import _init_
+
+
 
 #Dehaze Agenet environment is created
 env = gymnasium.make('env/DehazeAgent-v0', render_mode='human').unwrapped
@@ -42,22 +39,6 @@ Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward'))
 
 
-pretrained_vgg_model = models.vgg16(pretrained=True)
-# Extract the features with 1x4096 size (remove the last layers in classifier)
-pretrained_vgg_model.classifier = nn.Sequential(*list(pretrained_vgg_model.classifier.children())[:-3])
-
-
-def extract_vgg_features(img):
-    input_tensor = T.ToTensor()(T.Resize((512, 512))(Image.fromarray(img))).unsqueeze(dim=0)
-    return pretrained_vgg_model(input_tensor)
-
-# Example for extracting vgg features 
-# img = Image.open('/Users/iamariyap/Desktop/sem3/PredictiveML/Project/code/PMLProject/src/city2_hazy.png')
-# features = extract_vgg_features(img)
-# print(features)
-# print(features.shape)
-# print(img.size)
-
 
 class ReplayMemory(object):
     def __init__(self, capacity):
@@ -73,32 +54,6 @@ class ReplayMemory(object):
     def __len__(self):
         return len(self.memory)
     
-class DQN(nn.Module):
-    def __init__(self, outputs):
-        super(DQN, self).__init__()
-        self.fc1 = nn.Linear(4096, 4096)
-        self.bn1 = nn.BatchNorm2d(32)
-        self.fc2 = nn.Linear(4096, 512)
-        self.bn2 = nn.BatchNorm2d(32)
-        self.fc3 = nn.Linear(512, 11)
-        self.bn3 = nn.BatchNorm2d(32)
-
-        # Number of Linear input connections depends on output of conv2d layers
-        # and therefore the input image size, so compute it.
-        # def conv2d_size_out(size, kernel_size = 5, stride = 2):
-        #     return (size - (kernel_size - 1) - 1) // stride  + 1
-        # convw = conv2d_size_out(conv2d_size_out(conv2d_size_out(w)))
-        # convh = conv2d_size_out(conv2d_size_out(conv2d_size_out(h)))
-        # TODO(nikitha) How to set linear input size??
-        # linear_input_size = 16 * 32 * 32
-        # self.head = nn.Linear(linear_input_size, outputs)
-
-    def forward(self, x):
-        # x = x.to(device)
-        x = F.relu(self.bn1(self.fc1(x)))
-        x = F.relu(self.bn2(self.fc2(x)))
-        x = F.relu(self.bn3(self.fc3(x)))
-        return x
     
 
 env.reset()
@@ -148,20 +103,20 @@ def select_action(state):
 episode_durations = []
 
 
-def plot_durations():
-    plt.figure(2)
-    plt.clf()
-    durations_t = torch.tensor(episode_durations, dtype=torch.float)
-    plt.title('Training...')
-    plt.xlabel('Episode')
-    plt.ylabel('Duration')
-    plt.plot(durations_t.numpy())
-    if len(durations_t) >= 100:
-        means = durations_t.unfold(0, 100, 1).mean(1).view(-1)
-        means = torch.cat((torch.zeros(99), means))
-        plt.plot(means.numpy())
+# def plot_durations():
+#     plt.figure(2)
+#     plt.clf()
+#     durations_t = torch.tensor(episode_durations, dtype=torch.float)
+#     plt.title('Training...')
+#     plt.xlabel('Episode')
+#     plt.ylabel('Duration')
+#     plt.plot(durations_t.numpy())
+#     if len(durations_t) >= 100:
+#         means = durations_t.unfold(0, 100, 1).mean(1).view(-1)
+#         means = torch.cat((torch.zeros(99), means))
+#         plt.plot(means.numpy())
 
-    plt.pause(0.001)
+#     plt.pause(0.001)
         
 def optimize_model():
     if len(memory) < BATCH_SIZE:
@@ -193,7 +148,7 @@ def optimize_model():
         param.grad.data.clamp_(-1, 1)
     optimizer.step()
     
-num_episodes = 50
+num_episodes = 1
 for i_episode in range(num_episodes):
     # Initialize the environment and state
     observation, info = env.reset()
@@ -228,6 +183,9 @@ for i_episode in range(num_episodes):
         # Update the target network, copying all weights and biases in DQN
         if t % TARGET_UPDATE == 0:
             target_net.load_state_dict(policy_net.state_dict())
+
+torch.save(target_net.state_dict(), "./dqn_target_net.pt")
+torch.save(policy_net.state_dict(), "./dqn_policy_net.pt")
 
 print('Complete')
 env.render()
