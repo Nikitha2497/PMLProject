@@ -5,16 +5,21 @@ import pygame
 import cv2
 from RL_Actions import *
 import math
+import pandas as pd
 
 import skimage
 
+import torch
+from yolov5.utils.loss import ComputeLoss
+from yolov5.utils.dataloaders import LoadImages
+
 # Hyper Parameters for tuning reward function.
 # L2 norm loss
-lamba1 = 1
+lamba1 = 0.001
 # PSNR metric measure
-lambda2 = 1
+lambda2 = 0.1
 # SSIM metric measure
-lambda3 = 1
+lambda3 = 2
 # Bounding box loss
 lambda4 = 1
 
@@ -27,8 +32,15 @@ class DehazeAgent(gym.Env):
 
     def __init__(self, render_mode=None,size=(512,512,3)):
         self.size = size  # The size of the square grid
-        self.window_size = 512  # The size of the PyGame window
+        self.window_size = 640  # The size of the PyGame window
+        self.dataset_file="../data/Cityscaples2Foggy/Cityscapes2Foggy.csv"
+        self.source_folder="../data/Cityscaples2Foggy/source/"
+        self.target_folder="../data/Cityscaples2Foggy/target/"
+        self.df=pd.read_csv(self.dataset_file,index_col='Unnamed: 0')
+        self.model=torch.hub.load('yolov5', 'custom', path='yolov5/runs/train/exp/weights/best.pt', source='local',autoshape=False)
 
+        self.model.warmup(imgsz=(1 , 3, 640, 640))
+        self.loss_function=ComputeLoss(self.model.model)
         # Observations are dictionaries with the agent's and the target's location.
         # Each location is encoded as an element of {0, ..., `size`}^2, i.e. MultiDiscrete([size, size]).
         self.observation_space = spaces.Dict(
@@ -70,11 +82,48 @@ class DehazeAgent(gym.Env):
     def _l2_norm(self):
         return math.sqrt(np.sum((self._image - self._original_clear_img)**2))
 
-    def pnsr_measure(self):
+    def _pnsr_measure(self):
         return skimage.metrics.peak_signal_noise_ratio(self._original_clear_img, self._image)
     
-    def ssim_measure(self):
+    def _ssim_measure(self):
         return skimage.metrics.structural_similarity(self._original_clear_img, self._image, multichannel = True)
+    
+    def _bb_loss(self):
+        img = self._image
+        # format image as required for model
+        img=np.copy(img)
+        img = np.moveaxis(img, -1, 0)
+        img = torch.from_numpy(img).to(self.model.device)
+        img =  img.float()
+        img=img[None]
+        # print(img.shape)
+        pred = self.model(img,augment=False,visualize=False)
+
+        # obtain the annotations
+        lines=[]
+        annotation=self._datapoint['annotation'].item()
+        annotation_file_name=annotation.split('_foggy')[0].split('target/')[-1]+'.txt'
+        annotation_file_name='../data/Cityscaples2Foggy/source/'+annotation_file_name
+        print(annotation_file_name)
+        with open(annotation_file_name) as f:
+            lines=[line.split(' ') for line in f.readlines()]
+        
+        # parse to obtain tensor format
+        targets=[]
+        for line in lines:
+            line[-1]=line[-1].split('\n')[0]
+            values=[0]
+            for val in line:
+                values.append(float(val))
+
+            targets.append(torch.tensor([values]))
+
+        all_targets=torch.cat(targets)
+
+        # loss function invocation
+        loss_value,_=self.loss_function(pred[1],all_targets.to(self.model.device))
+
+        return loss_value.item()
 
     def reset(self, seed=None, options=None):
         # We need the following line to seed self.np_random
@@ -82,17 +131,16 @@ class DehazeAgent(gym.Env):
 
         # Choose the agent's location uniformly at random
         # here we should read a new image from the dataset
-        # TODO(nikitha) This is the path of the original clear picture (Change this)
-        self._original_path = "/Users/iamariyap/Desktop/sem3/PredictiveML/RL_Project/code/PMLProject/src/city2_hazy.png"
-        img = cv2.imread("/Users/iamariyap/Desktop/sem3/PredictiveML/RL_Project/code/PMLProject/src/city2_hazy.png")
-        self._original_clear_img = cv2.imread(self._original_path)
+        self._datapoint=self.df.sample()
+        img = cv2.imread(self.target_folder+self._datapoint['foggy_image'].item())
+        img=cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
+        self._original_size=img.shape
+        self._image=cv2.resize(img,(640,640))
 
-        # img=cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
-        self._image=cv2.resize(img,(512,512))
-        self._original_clear_img = cv2.resize(self._original_clear_img, (512, 512))
-        
-        print("L2 norm should be zero here - ", self._l2_norm())
-        print(" SSIM measure for same images - ", self.ssim_measure())
+        self._original_path = self.source_folder+self._datapoint['src_image'].item()
+        self._original_clear_img = cv2.imread(self._original_path)
+        self._original_clear_img = cv2.resize(self._original_clear_img, (640, 640))
+
         self._last_action=-1
 
         # # We will sample the target's location randomly until it does not coincide with the agent's location
@@ -143,18 +191,24 @@ class DehazeAgent(gym.Env):
         self._last_action=action
         # An episode is done iff the agent has reached the target
         # terminated = np.array_equal(self._agent_location, self._target_location)
-        terminated=np.random.uniform()
-        reward = 1 if terminated<0.25 else 0  # Random Reward
+        # terminated=np.random.uniform()
+        terminated = False
+        reward = -lamba1*self._l2_norm() + lambda2*self._pnsr_measure() + lambda3*self._ssim_measure() + lambda4*self._bb_loss()
         print("L2 Norm - ", self._l2_norm())
-        print("psnr measure - ", self.pnsr_measure())
-        print(" ssim measure - ", self.ssim_measure())
+        print("psnr measure - ", self._pnsr_measure())
+        print(" ssim measure - ", self._ssim_measure())
+
+        # If the image is very close to the original image then terminate
+        if(self._ssim_measure > 0.99):
+            terminated = True
+
         observation = self._get_obs()
         info = self._get_info()
 
         # if self.render_mode == "human":
         #     self._render_frame()
 
-        return observation, reward, terminated<0.25, False, info
+        return observation, reward, terminated, False, info
 
     def render(self):
         if self.render_mode == "rgb_array":
