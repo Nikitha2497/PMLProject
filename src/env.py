@@ -19,7 +19,7 @@ lamba1 = 0.001
 # PSNR metric measure
 lambda2 = 0.1
 # SSIM metric measure
-lambda3 = 2
+lambda3 = 20
 # Bounding box loss
 lambda4 = 1
 
@@ -41,6 +41,7 @@ class DehazeAgent(gym.Env):
 
         self.model.warmup(imgsz=(1 , 3, 640, 640))
         self.loss_function=ComputeLoss(self.model.model)
+        self.count=0
         # Observations are dictionaries with the agent's and the target's location.
         # Each location is encoded as an element of {0, ..., `size`}^2, i.e. MultiDiscrete([size, size]).
         self.observation_space = spaces.Dict(
@@ -142,6 +143,7 @@ class DehazeAgent(gym.Env):
         self._original_clear_img = cv2.resize(self._original_clear_img, (640, 640))
 
         self._last_action=-1
+        self.count=0
 
         # # We will sample the target's location randomly until it does not coincide with the agent's location
         # self._target_location = self._agent_location
@@ -189,17 +191,19 @@ class DehazeAgent(gym.Env):
             self._image=cv2.cvtColor(CE(self._image),cv2.COLOR_RGB2BGR)
         
         self._last_action=action
+        self.count=self.count+1
         # An episode is done iff the agent has reached the target
         # terminated = np.array_equal(self._agent_location, self._target_location)
         # terminated=np.random.uniform()
         terminated = False
-        reward = -lamba1*self._l2_norm() + lambda2*self._pnsr_measure() + lambda3*self._ssim_measure() + lambda4*self._bb_loss()
+        bb_loss=self._bb_loss()
+        reward = -lamba1*self._l2_norm() + lambda2*self._pnsr_measure() + lambda3*self._ssim_measure() + lambda4*bb_loss
         print("L2 Norm - ", self._l2_norm())
         print("psnr measure - ", self._pnsr_measure())
         print(" ssim measure - ", self._ssim_measure())
-
+        print("bb_loss - ",bb_loss)
         # If the image is very close to the original image then terminate
-        if(self._ssim_measure > 0.99):
+        if(self._ssim_measure() > 0.99 or self.count>10):
             terminated = True
 
         observation = self._get_obs()

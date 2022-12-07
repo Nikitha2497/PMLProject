@@ -8,7 +8,7 @@ import gymnasium
 import matplotlib.pyplot as plt
 import cv2
 from vgg_features import extract_vgg_features
-
+import os
 import _init_
 
 env = gymnasium.make('env/DehazeAgent-v0', render_mode='human').unwrapped
@@ -56,8 +56,33 @@ def dehaze_image(img):
 
     return state
 
-img = cv2.imread("/Users/iamariyap/Desktop/sem3/PredictiveML/RL_Project/code/PMLProject/src/city2_hazy.png")
+# img = cv2.imread("/Users/yani/Documents/GitHub/PMLProject/src/city2_hazy.png")
 
-dehazed_img = dehaze_image(img)
-cv2.imwrite( "dehazed_img1.png", dehazed_img)
-# plt.imshow(dehazed_img)
+# dehazed_img = dehaze_image(img)
+# cv2.imwrite( "dehazed_img1.png", dehazed_img)
+# # plt.imshow(dehazed_img)
+def generate_dehazed_output(input_path,out_path):
+    print("Reading images from {} and writing to {}".format(input_path,out_path))
+    image_files=os.listdir()
+    for image_name in image_files: 
+        img_path=input_path+image_name
+        img = cv2.imread(img_path)
+        dehazed_img = dehaze_image(img)
+        new_img_path=out_path+image_name.split(".")[0]+"_dehazed.png"
+        print("Writing image : ",new_img_path)
+        cv2.imwrite(new_img_path, dehazed_img)
+    
+    return
+
+mode= ''# yolo_inference/yolo_train
+user_input=input('Enter the mode (yolo_inference/yolo_train) :')
+
+path_={'yolo_inference':['yolov5/dataset/cityscapes/test','yolov5/dataset/cityscapes/dehazed_test'],
+        'yolo_train':['yolov5/dataset/cityscapes/train','yolov5/dataset/cityscapes/dehazed_train']}
+
+if user_input not in path_:
+    print("No valid choice entered, defaulting to yolo_inference")
+    user_input='yolo_inference'
+
+
+generate_dehazed_output(path_[user_input][0],path_[user_input][1])

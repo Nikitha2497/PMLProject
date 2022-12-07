@@ -1,0 +1,15 @@
+path: datasets/cityscapes  # dataset root dir
+train: images/train  # train images (relative to 'path') 128 images
+val: images/test  # val images (relative to 'path') 128 images
+test:  # test images (optional)
+
+# Classes (80 COCO classes)
+names:
+  0: person
+  1: rider
+  2: car
+  3: truck
+  4: bus
+  5: train
+  6: mcycle
+  7: bicycle

@@ -148,11 +148,12 @@ def optimize_model():
         param.grad.data.clamp_(-1, 1)
     optimizer.step()
     
-num_episodes = 1
+num_episodes = 50
 for i_episode in range(num_episodes):
     # Initialize the environment and state
     observation, info = env.reset()
     state = observation["image"]
+    print("Episode : ",i_episode)
     for t in count():
         # Select and perform an action
         features = extract_vgg_features(state)
@@ -167,8 +168,9 @@ for i_episode in range(num_episodes):
         else:
             next_state = None
 
-        # Store the transition in memory
-        memory.push(extract_vgg_features(state), action, next_state, reward)
+        if state is not None:
+            # Store the transition in memory
+            memory.push(extract_vgg_features(state), action, next_state, reward)
 
         # Move to the next state
         state = next_state
