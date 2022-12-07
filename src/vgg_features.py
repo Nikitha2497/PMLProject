@@ -10,7 +10,9 @@ pretrained_vgg_model.classifier = nn.Sequential(*list(pretrained_vgg_model.class
 
 def extract_vgg_features(img):
     input_tensor = T.ToTensor()(T.Resize((512, 512))(Image.fromarray(img))).unsqueeze(dim=0)
-    return pretrained_vgg_model(input_tensor)
+    features = pretrained_vgg_model(input_tensor)
+    print("FEATURES shape", features.shape)
+    return features
 
 # Example for extracting vgg features 
 # img = Image.open('/Users/iamariyap/Desktop/sem3/PredictiveML/Project/code/PMLProject/src/city2_hazy.png')

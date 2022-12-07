@@ -23,6 +23,7 @@ class DQN(nn.Module):
 
     def forward(self, x):
         # x = x.to(device)
+        print("inside forward ", x.shape)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = F.relu(self.fc3(x))

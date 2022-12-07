@@ -36,8 +36,12 @@ class DehazeAgent(gym.Env):
         self.dataset_file="yolov5/datasets/cityscapes/train_data.csv"
         self.source_folder="yolov5/datasets/cityscapes/images/train/" # clear images
         self.target_folder="yolov5/datasets/cityscapes/images/train_foggy/" # foggy images
+        # self.dataset_file="/Users/iamariyap/Desktop/sem3/PredictiveML/RL_Project/code/PMLProject/src/yolov5/datasets/cityscapes/train_data.csv"
+        # self.source_folder="/Users/iamariyap/Desktop/sem3/PredictiveML/RL_Project/code/PMLProject/src/yolov5/datasets/cityscapes/images/train/" # clear images
+        # self.target_folder="/Users/iamariyap/Desktop/sem3/PredictiveML/RL_Project/code/PMLProject/src/yolov5/datasets/cityscapes/images/train_foggy/" # foggy images
         self.df=pd.read_csv(self.dataset_file,index_col='Unnamed: 0.1')
         self.model=torch.hub.load('yolov5', 'custom', path='yolov5/runs/train/exp/weights/best.pt', source='local',autoshape=False)
+        # self.model=torch.hub.load('/Users/iamariyap/Desktop/sem3/PredictiveML/RL_Project/code/PMLProject/src/yolov5', 'custom', path='/Users/iamariyap/Desktop/sem3/PredictiveML/RL_Project/code/PMLProject/src/yolov5/runs/train/exp/weights/best.pt', source='local',autoshape=False)
 
         self.model.warmup(imgsz=(1 , 3, 640, 640))
         self.loss_function=ComputeLoss(self.model.model)
@@ -105,6 +109,7 @@ class DehazeAgent(gym.Env):
         annotation=self._datapoint['annotation'].item()
         annotation_file_name=annotation.split('_foggy')[0].split('target/')[-1]+'.txt'
         annotation_file_name='yolov5/datasets/cityscapes/labels/train/'+annotation_file_name
+        # annotation_file_name='/Users/iamariyap/Desktop/sem3/PredictiveML/RL_Project/code/PMLProject/src/yolov5/datasets/cityscapes/labels/train/'+annotation_file_name
         print(annotation_file_name)
         with open(annotation_file_name) as f:
             lines=[line.split(' ') for line in f.readlines()]

@@ -1,5 +1,6 @@
 import gymnasium
-
+import sys
+import os
 import matplotlib
 import matplotlib.pyplot as plt
 
@@ -21,7 +22,8 @@ from vgg_features import extract_vgg_features
 
 import _init_
 
-
+# sys.path.append(os.path.abspath("/Users/iamariyap/Desktop/sem3/PredictiveML/RL_Project/code/PMLProject/src/yolov5"))
+sys.path.append(os.path.abspath("./yolov5"))
 
 #Dehaze Agenet environment is created
 env = gymnasium.make('env/DehazeAgent-v0', render_mode='human').unwrapped
@@ -60,7 +62,7 @@ env.reset()
 
 
 # Params for RL training
-BATCH_SIZE = 128
+BATCH_SIZE = 1
 # Discount rate
 GAMMA = 0.999
 # Epsilon related parameters
@@ -81,7 +83,7 @@ target_net.load_state_dict(policy_net.state_dict())
 target_net.eval()
 
 optimizer = optim.RMSprop(policy_net.parameters())
-memory = ReplayMemory(10000)
+memory = ReplayMemory(1000000)
 
 
 steps_done = 0
@@ -126,8 +128,16 @@ def optimize_model():
 
     non_final_mask = torch.tensor(tuple(map(lambda s: s is not None,
                                           batch.next_state)), device=device, dtype=torch.bool)
-    non_final_next_states = torch.cat([s for s in batch.next_state
-                                                if s is not None])
+    # temp = []
+    # for s in batch.next_state:
+    #     if s is None:
+    #         continue
+    #     if type(s) is np.ndarray:
+    #         print("It is an ndarray")
+    #     temps = torch.tensor(s).float()
+    #     temps = temps[None]
+    #     temp.append(temps)
+    non_final_next_states = torch.cat([s for s in batch.next_state if s is not None])
     state_batch = torch.cat(batch.state)
     action_batch = torch.cat(batch.action)
     reward_batch = torch.cat(batch.reward)
@@ -135,6 +145,7 @@ def optimize_model():
     state_action_values = policy_net(state_batch).gather(1, action_batch)
 
     next_state_values = torch.zeros(BATCH_SIZE, device=device)
+    print("non final next states shape ", non_final_next_states.shape)
     next_state_values[non_final_mask] = target_net(non_final_next_states).max(1)[0].detach()
 
     expected_state_action_values = (next_state_values * GAMMA) + reward_batch
@@ -143,7 +154,7 @@ def optimize_model():
     loss = criterion(state_action_values, expected_state_action_values.unsqueeze(1))
 
     optimizer.zero_grad()
-    loss.backward()
+    loss.backward(retain_graph=True)
     for param in policy_net.parameters():
         param.grad.data.clamp_(-1, 1)
     optimizer.step()
@@ -153,27 +164,33 @@ for i_episode in range(num_episodes):
     # Initialize the environment and state
     observation, info = env.reset()
     state = observation["image"]
+    features = extract_vgg_features(state)
     print("Episode : ",i_episode)
     for t in count():
         # Select and perform an action
-        features = extract_vgg_features(state)
+        # features = extract_vgg_features(state)
         print("Size of the features " ,  features.shape)
-        action = select_action(extract_vgg_features(state))
+        action = select_action(features)
+        
         observation, reward, done, _, _ = env.step(action.item())
         reward = torch.tensor([reward], device=device)
 
         # Observe new state
         if not done:
             next_state = observation["image"]
+            next_features = extract_vgg_features(next_state)
         else:
             next_state = None
+            next_features = None
 
-        if state is not None:
-            # Store the transition in memory
-            memory.push(extract_vgg_features(state), action, next_state, reward)
+        # if next_state is not None:
+        # Store the transition in memory
+        
+        memory.push(features, action, next_features, reward)
 
         # Move to the next state
         state = next_state
+        next_features = features
 
         # Perform one step of the optimization (on the policy network)
         optimize_model()
