@@ -30,10 +30,10 @@ def cvimage_to_pygame(image):
 class DehazeAgent(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
-    def __init__(self, render_mode=None,size=(512,512,3)):
+    def __init__(self, render_mode=None,size=(512,512,3),data_file_no=1):
         self.size = size  # The size of the square grid
         self.window_size = 640  # The size of the PyGame window
-        self.dataset_file="yolov5/datasets/cityscapes/train_data.csv"
+        self.dataset_file="yolov5/datasets/cityscapes/train_data_{}.csv".format(data_file_no)
         self.source_folder="yolov5/datasets/cityscapes/images/train/" # clear images
         self.target_folder="yolov5/datasets/cityscapes/images/train_foggy/" # foggy images
         # self.dataset_file="/Users/iamariyap/Desktop/sem3/PredictiveML/RL_Project/code/PMLProject/src/yolov5/datasets/cityscapes/train_data.csv"
@@ -210,7 +210,7 @@ class DehazeAgent(gym.Env):
         print(" ssim measure - ", self._ssim_measure())
         print("bb_loss - ",bb_loss)
         # If the image is very close to the original image then terminate
-        if(self._ssim_measure() > 0.99 or self.count>10):
+        if(self._ssim_measure() > 0.99 or self.count>5):
             terminated = True
 
         observation = self._get_obs()
