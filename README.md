@@ -24,3 +24,10 @@ Generate dehazed output for testing detector
 Testing detector
 
 ``` python python yolov5/detect.py --weights yolov5/runs/train/exp/weights/best.pt  --source yolov5/dataset/cityscapes/images/test_foggy```
+
+
+packages required
+
+pip install gymnasium
+pip install matplotlib
+pip install torch
