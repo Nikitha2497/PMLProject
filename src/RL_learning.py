@@ -19,14 +19,21 @@ import random
 import numpy as np
 
 from vgg_features import extract_vgg_features
-
+import argparse
 import _init_
 
 # sys.path.append(os.path.abspath("/Users/iamariyap/Desktop/sem3/PredictiveML/RL_Project/code/PMLProject/src/yolov5"))
 sys.path.append(os.path.abspath("./yolov5"))
 
+
+parser = argparse.ArgumentParser(description='RL learning module')
+parser.add_argument('--data', required=False,default=1,
+                    help='The number associated with the data file ')
+args = parser.parse_args()
+data_file_no=args.data
+print("file selected: ",data_file_no)
 #Dehaze Agenet environment is created
-env = gymnasium.make('env/DehazeAgent-v0', render_mode='human').unwrapped
+env = gymnasium.make('env/DehazeAgent-v0', render_mode='human',data_file_no=data_file_no).unwrapped
 
 # set up matplotlib
 is_ipython = 'inline' in matplotlib.get_backend()
@@ -51,7 +58,8 @@ class ReplayMemory(object):
         self.memory.append(Transition(*args))
 
     def sample(self, batch_size):
-        return random.sample(self.memory, batch_size)
+        random_trajs=random.sample(self.memory, batch_size)
+        return random_trajs
 
     def __len__(self):
         return len(self.memory)
@@ -62,7 +70,7 @@ env.reset()
 
 
 # Params for RL training
-BATCH_SIZE = 1
+BATCH_SIZE = 4
 # Discount rate
 GAMMA = 0.999
 # Epsilon related parameters
@@ -79,11 +87,13 @@ n_actions = env.action_space.n
 
 policy_net = DQN(n_actions).to(device)
 target_net = DQN(n_actions).to(device)
+
+policy_net.load_state_dict(torch.load("dqn_policy_net.pt")) # load the previous weigths to continue
 target_net.load_state_dict(policy_net.state_dict())
 target_net.eval()
 
 optimizer = optim.RMSprop(policy_net.parameters())
-memory = ReplayMemory(1000000)
+memory = ReplayMemory(1)
 
 
 steps_done = 0
