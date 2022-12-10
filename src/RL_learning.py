@@ -70,7 +70,7 @@ env.reset()
 
 
 # Params for RL training
-BATCH_SIZE = 4
+BATCH_SIZE = 8
 # Discount rate
 GAMMA = 0.999
 # Epsilon related parameters
@@ -88,12 +88,15 @@ n_actions = env.action_space.n
 policy_net = DQN(n_actions).to(device)
 target_net = DQN(n_actions).to(device)
 
-policy_net.load_state_dict(torch.load("dqn_policy_net.pt")) # load the previous weigths to continue
+files=os.listdir()
+if 'dqn_policy_net.pt' in files :
+    policy_net.load_state_dict(torch.load("dqn_policy_net.pt")) # load the previous weigths to continue
+
 target_net.load_state_dict(policy_net.state_dict())
 target_net.eval()
 
 optimizer = optim.RMSprop(policy_net.parameters())
-memory = ReplayMemory(1)
+memory = ReplayMemory(1000)
 
 
 steps_done = 0
@@ -147,7 +150,7 @@ def optimize_model():
     state_action_values = policy_net(state_batch).gather(1, action_batch)
 
     next_state_values = torch.zeros(BATCH_SIZE, device=device)
-    print("non final next states shape ", non_final_next_states.shape)
+    # print("non final next states shape ", non_final_next_states.shape)
     next_state_values[non_final_mask] = target_net(non_final_next_states).max(1)[0].detach()
 
     expected_state_action_values = (next_state_values * GAMMA) + reward_batch
@@ -161,7 +164,7 @@ def optimize_model():
         param.grad.data.clamp_(-1, 1)
     optimizer.step()
     
-num_episodes = 50
+num_episodes = 25
 for i_episode in range(num_episodes):
     # Initialize the environment and state
     observation, info = env.reset()
@@ -172,7 +175,7 @@ for i_episode in range(num_episodes):
         # Select and perform an action
 
         
-        print("Size of the features " ,  features.shape)
+        # print("Size of the features " ,  features.shape)
         action = select_action(features)
         observation, reward, done, _, _ = env.step(action.item())
         reward = torch.tensor([reward], device=device)
@@ -203,6 +206,10 @@ for i_episode in range(num_episodes):
         # Update the target network, copying all weights and biases in DQN
         if t % TARGET_UPDATE == 0:
             target_net.load_state_dict(policy_net.state_dict())
+    
+    if i_episode % 10:
+        torch.save(target_net.state_dict(), "./dqn_target_net.pt")
+        torch.save(policy_net.state_dict(), "./dqn_policy_net.pt")
 
 torch.save(target_net.state_dict(), "./dqn_target_net.pt")
 torch.save(policy_net.state_dict(), "./dqn_policy_net.pt")
