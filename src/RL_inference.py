@@ -10,6 +10,9 @@ import cv2
 from vgg_features import extract_vgg_features
 import os
 import _init_
+import sys
+
+sys.path.append(os.path.abspath("./yolov5"))
 
 env = gymnasium.make('env/DehazeAgent-v0', render_mode='human').unwrapped
 
@@ -26,7 +29,7 @@ policy_net.load_state_dict(torch.load("dqn_policy_net.pt"))
 policy_net.eval()
 # target_net.load_state_dict(torch.load("dqn_target_net.pt"))
 
-max_steps = 10
+max_steps = 5
 
 # Greedy policy is used.
 def select_action(state):
@@ -63,7 +66,7 @@ def dehaze_image(img):
 # # plt.imshow(dehazed_img)
 def generate_dehazed_output(input_path,out_path):
     print("Reading images from {} and writing to {}".format(input_path,out_path))
-    image_files=os.listdir()
+    image_files=os.listdir(input_path)
     for image_name in image_files: 
         img_path=input_path+image_name
         img = cv2.imread(img_path)
@@ -77,8 +80,8 @@ def generate_dehazed_output(input_path,out_path):
 mode= ''# yolo_inference/yolo_train
 user_input=input('Enter the mode (yolo_inference/yolo_train) :')
 
-path_={'yolo_inference':['yolov5/dataset/cityscapes/test','yolov5/dataset/cityscapes/dehazed_test'],
-        'yolo_train':['yolov5/dataset/cityscapes/train','yolov5/dataset/cityscapes/dehazed_train']}
+path_={'yolo_inference':['yolov5/datasets/cityscapes/images/test_foggy/','yolov5/datasets/cityscapes/images/dehazed_test/'],
+        'yolo_train':['yolov5/datasets/cityscapes/images/train_foggy/','yolov5/datasets/cityscapes/images/dehazed_train/']}
 
 if user_input not in path_:
     print("No valid choice entered, defaulting to yolo_inference")
